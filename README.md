@@ -12,6 +12,6 @@ Das Spiel folgt den klassischen Regeln von Snake:
 ## 🛠 Technologien
 
 - **Backend**: Flask (Python)
-- **Frontend**: HTML, CSS
+- **Frontend**: HTML, CSS, JavaScript
 
 Viel Spass!!
