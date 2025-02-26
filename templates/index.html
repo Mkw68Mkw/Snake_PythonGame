@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Web Snake Game</title>
+    <style>
+        canvas { border: 1px solid #333; }
+        body { display: flex; flex-direction: column; align-items: center; background: #222; color: white; }
+        .notification-hidden {
+            display: none;
+            opacity: 0;
+        }
+
+        .notification-visible {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(78, 255, 100, 0.3);
+            border: 2px solid #4eff64;
+            animation: notificationEnter 0.3s ease-out;
+            display: block;
+            opacity: 1;
+        }
+
+        .notification-content {
+            position: relative;
+            padding: 2rem 3rem;
+            background: #001122;
+            border: 3px solid #00ff88;
+            border-radius: 15px;
+            text-shadow: 0 0 10px #00ff8877;
+            box-shadow: 0 0 30px #00ff8833;
+        }
+
+        .notification-content h2 {
+            color: #00ff88;
+            font-size: 2.5em;
+            margin: 0 0 0.5em 0;
+        }
+
+        .notification-loader {
+            border: 3px solid #00ff88;
+            border-top-color: transparent;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes notificationEnter {
+            from {
+                transform: translate(-50%, -50%) scale(0.8);
+                opacity: 0;
+            }
+            to {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>Snake Game by Kevin Wu</h1>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+    <div>
+        <p>Score: <span id="score">0</span> | High Score: <span id="highScore">0</span></p>
+    </div>
+
+    <!-- Add notification container -->
+    <div id="gameNotification" class="notification-hidden">
+        <div class="notification-content">
+            <h2>Game Over!</h2>
+            <p>Score: <span id="finalScore">0</span></p>
+            <p>Press R to restart</p>
+            <div class="notification-loader"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let lastUpdate = Date.now();
+        const updateInterval = 1000/15;
+
+        // Color definitions
+        const colors = {
+            snakeHead: '#0078ff',
+            snakeBody: '#00dc50',
+            food: '#a0a0ff',
+            background: '#1a1a1a'
+        };
+
+        // Game controls
+        document.addEventListener('keydown', (e) => {
+            let direction = '';
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'w': direction = 'UP'; break;
+                case 'ArrowDown':
+                case 's': direction = 'DOWN'; break;
+                case 'ArrowLeft':
+                case 'a': direction = 'LEFT'; break;
+                case 'ArrowRight':
+                case 'd': direction = 'RIGHT'; break;
+            }
+            if (direction) {
+                fetch('/input', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ direction: direction })
+                });
+            }
+        });
+
+        const gameNotification = document.getElementById('gameNotification');
+        const finalScoreElement = document.getElementById('finalScore');
+
+        function showNotification(score) {
+            finalScoreElement.textContent = score;
+            gameNotification.classList.remove('notification-hidden');
+            gameNotification.classList.add('notification-visible');
+        }
+
+        function hideNotification() {
+            gameNotification.classList.remove('notification-visible');
+            gameNotification.classList.add('notification-hidden');
+        }
+
+        function drawGame(state) {
+            // Clear canvas
+            ctx.fillStyle = colors.background;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw snake
+            state.snake_pos.forEach((pos, index) => {
+                ctx.fillStyle = index === 0 ? colors.snakeHead : colors.snakeBody;
+                ctx.beginPath();
+                ctx.roundRect(pos[0], pos[1], 20, 20, 5);
+                ctx.fill();
+            });
+
+            // Draw food
+            ctx.fillStyle = colors.food;
+            ctx.beginPath();
+            ctx.arc(state.food_pos[0]+10, state.food_pos[1]+10, 10, 0, Math.PI*2);
+            ctx.fill();
+
+            // Update score display
+            document.getElementById('score').textContent = state.score;
+            document.getElementById('highScore').textContent = state.high_score;
+
+            // Show/hide game over overlay
+            if (!state.running) {
+                showNotification(state.score);
+            } else {
+                hideNotification();
+            }
+        }
+
+        function gameLoop() {
+            if (Date.now() - lastUpdate > updateInterval) {
+                fetch('/update', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(state => {
+                        drawGame(state);
+                    });
+                lastUpdate = Date.now();
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Initial game start
+        fetch('/game_state').then(r => r.json()).then(drawGame);
+        gameLoop();
+
+        // Restart handler
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'r') {
+                fetch('/reset', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(state => drawGame(state));
+            }
+        });
+    </script>
+</body>
+</html> 
